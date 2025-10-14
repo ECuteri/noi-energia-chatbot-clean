@@ -1,0 +1,136 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.env
+.venv/
+venv/
+env/
+build/
+dist/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Databases and local data
+*.db
+*.sqlite
+*.sqlite3
+checkpoints.db
+client_information.db
+oauth_credentials.db
+data/
+*.csv
+*.json
+
+# Logs and monitoring
+logs/
+*.log
+app.log
+hypercorn.log
+quart.log
+monitoring/
+metrics/
+
+# Development tools and scripts
+cli_chat.py
+test_bundling_fix.py
+list_endpoints.py
+manual_followup_trigger.py
+example_payload.json
+
+# Testing and coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.cache/
+.mypy_cache/
+test_*.py
+tests/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation (development-specific)
+docs/
+*.md
+!README.md
+database.md
+error.md
+chatwoot.md
+MANUAL_FOLLOWUP_TESTING.md
+PHASE_1_PRODUCTION_IMPLEMENTATION.md
+
+# CI/CD and deployment
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+Jenkinsfile
+deploy.sh
+.pre-commit-config.yaml
+.flake8
+
+# Docker and container files
+docker-compose.override.yml
+.dockerignore
+Dockerfile*
+!Dockerfile
+
+# Node.js (if any frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Backup and temporary files
+*.bak
+*.backup
+*.old
+*.orig
+*.tmp
+*.temp
+backups/
+snapshots/
+
+# SSL certificates (local development)
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+ssl/
+certs/
+
+# AI/ML artifacts (development)
+*.pkl
+*.h5
+*.pb
+*.onnx
+*.joblib
