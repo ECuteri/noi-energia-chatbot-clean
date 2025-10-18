@@ -237,7 +237,7 @@ async def _process_incoming(
 
         history_start = time.time()
         try:
-            chat_history = await supabase_store.get_chat_history(session_id, limit=20)
+            chat_history = await supabase_store.get_chat_history(session_id, limit=10)
             history_time = time.time() - history_start
             logger.info(
                 f"[cw:{agent_name}:{contact_identifier}] Loaded {len(chat_history)} messages from history - Time: {history_time:.3f}s"

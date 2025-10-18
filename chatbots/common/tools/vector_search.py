@@ -52,8 +52,8 @@ def create_vector_search_tool(table_name: str, chatbot_name: str) -> Callable:
                 formatted_result = {
                     "chunk_id": result.get("id"),
                     "content": (
-                        result.get("content", "")[:500] + "..."
-                        if len(result.get("content", "")) > 500
+                        result.get("content", "")[:300] + "..."
+                        if len(result.get("content", "")) > 300
                         else result.get("content", "")
                     ),
                     "similarity_score": result.get("similarity", 0.0),
