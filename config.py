@@ -50,7 +50,7 @@ SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.3"))
 HYBRID_SEARCH_ENABLED = os.getenv("HYBRID_SEARCH_ENABLED", "true").lower() == "true"
 HYBRID_SEARCH_CANDIDATES = int(os.getenv("HYBRID_SEARCH_CANDIDATES", "20"))
 RERANK_ENABLED = os.getenv("RERANK_ENABLED", "true").lower() == "true"
-RERANK_MODEL = os.getenv("RERANK_MODEL", "cohere/rerank-english-v3.0")
+RERANK_MODEL = os.getenv("RERANK_MODEL", "cohere/rerank-v3.5")
 RERANK_TOP_N = int(os.getenv("RERANK_TOP_N", "5"))
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()

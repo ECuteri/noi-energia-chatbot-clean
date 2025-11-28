@@ -54,8 +54,20 @@ async def rerank_results(
                 )
                 return documents[:top_n]
 
-            data = response.json()
-            results = data.get("results", [])
+            response_text = response.text.strip()
+            if not response_text:
+                logger.error("Reranker API returned empty response")
+                return documents[:top_n]
+
+            try:
+                data = response.json()
+            except ValueError as json_error:
+                logger.error(
+                    f"Reranker API returned invalid JSON: {response_text[:200]} - {json_error}"
+                )
+                return documents[:top_n]
+
+            results = data.get("data", [])
 
             reranked = []
             for result in results:
