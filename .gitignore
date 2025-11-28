@@ -372,10 +372,20 @@ PHASE_1_PRODUCTION_IMPLEMENTATION.md
 
 # Development tools and scripts
 cli_chat.py
+client_cli.py
 test_bundling_fix.py
 list_endpoints.py
 manual_followup_trigger.py
 example_payload.json
+
+# Test files
+*test*.py
+*_test.py
+local_test.py
+test_*.py
+
+# Cursor IDE files
+.cursor/
 
 # Node.js (if any frontend components)
 node_modules/
