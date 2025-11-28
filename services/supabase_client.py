@@ -88,7 +88,11 @@ class SupabaseVectorStore:
         if self.db_pool is None and self.supabase_url:
             try:
                 self.db_pool = await asyncpg.create_pool(
-                    self.supabase_url, min_size=1, max_size=10, command_timeout=60
+                    self.supabase_url,
+                    min_size=1,
+                    max_size=10,
+                    command_timeout=60,
+                    statement_cache_size=0,
                 )
                 logger.info("✅ Database connection pool created successfully")
                 self.supabase = self.db_pool

@@ -4,7 +4,6 @@ import hmac
 import json
 import logging
 import time
-import traceback
 from typing import Any, Dict
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -327,10 +326,8 @@ async def _process_incoming(
         )
 
         thinking_message_sent = asyncio.Event()
-        thinking_task = None
 
-        async def send_thinking_message():
-            await asyncio.sleep(3)
+        async def send_thinking_message_if_needed():
             if not thinking_message_sent.is_set():
                 try:
                     conv_id_int = int(conversation_id)
@@ -350,23 +347,56 @@ async def _process_incoming(
                     )
 
         try:
-            thinking_task = asyncio.create_task(send_thinking_message())
-            result = await agent.ainvoke(
+            tool_call_detected = False
+            final_output = None
+
+            async for event in agent.astream_events(
                 {"messages": messages, "failed_document_ids": set()},
                 config={
                     "configurable": {"thread_id": session_id},
                     "recursion_limit": 30,
                 },
-            )
+                version="v2",
+            ):
+                event_type = event.get("event")
+                event_name = event.get("name", "")
 
-            if thinking_task and not thinking_task.done():
-                thinking_task.cancel()
-                try:
-                    await thinking_task
-                except asyncio.CancelledError:
-                    pass
-                logger.debug(
-                    f"[cw:{agent_name}:{contact_identifier}] Canceled thinking message task (agent completed quickly)"
+                if event_type == "on_chain_start" and event_name == "tools":
+                    if not tool_call_detected:
+                        tool_call_detected = True
+                        await send_thinking_message_if_needed()
+                        logger.info(
+                            f"[cw:{agent_name}:{contact_identifier}] Tools node started, sending thinking message"
+                        )
+
+                elif event_type == "on_tool_start":
+                    if not tool_call_detected:
+                        tool_call_detected = True
+                        await send_thinking_message_if_needed()
+                        logger.info(
+                            f"[cw:{agent_name}:{contact_identifier}] Tool call detected ({event_name}), sending thinking message"
+                        )
+
+                if event_type == "on_chain_end":
+                    output = event.get("data", {}).get("output", {})
+                    if isinstance(output, dict) and "messages" in output:
+                        final_output = output
+
+            if final_output:
+                messages_this_turn = final_output.get("messages", [])
+            else:
+                logger.warning(
+                    f"[cw:{agent_name}:{contact_identifier}] No output from astream_events, using ainvoke fallback"
+                )
+                result = await agent.ainvoke(
+                    {"messages": messages, "failed_document_ids": set()},
+                    config={
+                        "configurable": {"thread_id": session_id},
+                        "recursion_limit": 30,
+                    },
+                )
+                messages_this_turn = (
+                    result.get("messages", []) if isinstance(result, dict) else []
                 )
 
             agent_time = time.time() - agent_start
@@ -374,26 +404,12 @@ async def _process_incoming(
                 f"[cw:{agent_name}:{contact_identifier}] Agent invocation completed - Time: {agent_time:.3f}s"
             )
         except Exception as invoke_err:
-            if thinking_task and not thinking_task.done():
-                thinking_task.cancel()
-                try:
-                    await thinking_task
-                except asyncio.CancelledError:
-                    pass
-                logger.debug(
-                    f"[cw:{agent_name}:{contact_identifier}] Canceled thinking message task (agent error)"
-                )
-
             agent_time = time.time() - agent_start
             logger.error(
                 f"[cw:{agent_name}:{contact_identifier}] Agent invoke error - Time: {agent_time:.3f}s - Error: {invoke_err}",
                 exc_info=True,
             )
             return
-
-        messages_this_turn = (
-            result.get("messages", []) if isinstance(result, dict) else []
-        )
 
         if messages_this_turn:
             to_log = messages_this_turn[-10:]
