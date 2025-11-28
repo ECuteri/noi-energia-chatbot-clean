@@ -49,7 +49,7 @@ async def create_noi_cer_chatbot_agent():
 
     return await create_chatbot_agent(
         chatbot_name="Noi CER Chatbot",
-        model_name="openai/gpt-oss-120b",
+        model_name="x-ai/grok-4.1-fast:free",
         tools=tools,
         system_prompt=system_prompt,
         temperature=0.2,

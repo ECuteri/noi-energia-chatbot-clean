@@ -1,12 +1,11 @@
 import asyncio
 import base64
 import logging
-from io import BytesIO
 from typing import Any, Dict, Optional
 
 import aiohttp
 
-from config import GEMINI_API_KEY, OPENAI_API_KEY, TRANSCRIPTION_PROVIDER
+from config import GEMINI_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -15,15 +14,7 @@ TIMEOUT_SECONDS = 30
 
 
 async def transcribe_audio_from_url(audio_url: str) -> Optional[str]:
-    provider = TRANSCRIPTION_PROVIDER.lower()
-
-    if provider == "gemini":
-        return await _transcribe_with_gemini(audio_url)
-    elif provider == "openai":
-        return await _transcribe_with_openai(audio_url)
-    else:
-        logger.error(f"[voice] Invalid transcription provider: {provider}")
-        return None
+    return await _transcribe_with_gemini(audio_url)
 
 
 async def _download_audio(
@@ -129,79 +120,6 @@ Se il messaggio non contiene parlato o è silenzioso, restituisci: [audio silenz
         return None
 
 
-async def _transcribe_with_openai(audio_url: str) -> Optional[str]:
-    if not OPENAI_API_KEY:
-        logger.error("[voice] OpenAI API key not configured - cannot transcribe audio")
-        return None
-
-    timeout = aiohttp.ClientTimeout(total=TIMEOUT_SECONDS, connect=10)
-
-    try:
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            download_result = await _download_audio(audio_url, session)
-            if not download_result:
-                return None
-
-            audio_data, content_type, size_mb = download_result
-
-            file_extension = _get_extension_from_content_type(content_type)
-            filename = f"voice_message{file_extension}"
-
-            logger.info(f"[voice] Transcribing with OpenAI Whisper API...")
-
-            form = aiohttp.FormData()
-            form.add_field(
-                "file",
-                BytesIO(audio_data),
-                filename=filename,
-                content_type=content_type,
-            )
-            form.add_field("model", "whisper-1")
-            form.add_field("language", "it")
-            form.add_field("response_format", "json")
-
-            headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
-
-            async with session.post(
-                "https://api.openai.com/v1/audio/transcriptions",
-                headers=headers,
-                data=form,
-            ) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    logger.error(
-                        f"[voice] Whisper API error {resp.status}: {error_text}"
-                    )
-                    return None
-
-                result = await resp.json()
-                transcription = result.get("text", "").strip()
-
-                if transcription:
-                    logger.info(
-                        f"[voice] ✅ Whisper transcription successful: {transcription[:100]}..."
-                    )
-                    return transcription
-                else:
-                    logger.warning("[voice] Whisper returned empty transcription")
-                    return None
-
-    except aiohttp.ClientTimeout:
-        logger.error(
-            f"[voice] Timeout downloading or transcribing audio from {audio_url}"
-        )
-        return None
-    except aiohttp.ClientConnectorError as conn_err:
-        logger.error(f"[voice] Connection error downloading audio: {conn_err}")
-        return None
-    except Exception as e:
-        logger.error(
-            f"[voice] Error transcribing with OpenAI from {audio_url}: {e}",
-            exc_info=True,
-        )
-        return None
-
-
 def _get_mime_type_from_content_type(content_type: str) -> str:
     content_type_lower = content_type.lower()
 
@@ -221,25 +139,6 @@ def _get_mime_type_from_content_type(content_type: str) -> str:
         return "audio/flac"
     else:
         return "audio/ogg"
-
-
-def _get_extension_from_content_type(content_type: str) -> str:
-    content_type_lower = content_type.lower()
-
-    if "ogg" in content_type_lower or "opus" in content_type_lower:
-        return ".ogg"
-    elif "mpeg" in content_type_lower or "mp3" in content_type_lower:
-        return ".mp3"
-    elif "m4a" in content_type_lower or "mp4" in content_type_lower:
-        return ".m4a"
-    elif "wav" in content_type_lower:
-        return ".wav"
-    elif "webm" in content_type_lower:
-        return ".webm"
-    elif "flac" in content_type_lower:
-        return ".flac"
-    else:
-        return ".ogg"
 
 
 async def process_message_attachments(

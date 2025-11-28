@@ -17,18 +17,12 @@ def load_environment():
 
 load_environment()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    logger.critical("FATAL ERROR: OPENAI_API_KEY environment variable not set.")
-    sys.exit("OPENAI_API_KEY not set. Application cannot start.")
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if not GROQ_API_KEY:
-    logger.critical("FATAL ERROR: GROQ_API_KEY environment variable not set.")
-    sys.exit("GROQ_API_KEY not set. Application cannot start.")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    logger.critical("FATAL ERROR: OPENROUTER_API_KEY environment variable not set.")
+    sys.exit("OPENROUTER_API_KEY not set. Application cannot start.")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-TRANSCRIPTION_PROVIDER = os.getenv("TRANSCRIPTION_PROVIDER", "gemini")
 
 PORT = int(os.getenv("PORT", 5001))
 
@@ -49,8 +43,15 @@ CHATWOOT_NOI_ENERGIA_WEBHOOK_SECRET = os.getenv("CHATWOOT_NOI_ENERGIA_WEBHOOK_SE
 
 DEFAULT_COLLECTION = os.getenv("DEFAULT_COLLECTION", "default")
 MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "5"))
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1024"))
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.3"))
+
+HYBRID_SEARCH_ENABLED = os.getenv("HYBRID_SEARCH_ENABLED", "true").lower() == "true"
+HYBRID_SEARCH_CANDIDATES = int(os.getenv("HYBRID_SEARCH_CANDIDATES", "20"))
+RERANK_ENABLED = os.getenv("RERANK_ENABLED", "true").lower() == "true"
+RERANK_MODEL = os.getenv("RERANK_MODEL", "cohere/rerank-english-v3.0")
+RERANK_TOP_N = int(os.getenv("RERANK_TOP_N", "5"))
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -142,16 +143,17 @@ PROJECT_ROOT = SCRIPT_DIR
 PROMPTS_DIR = os.path.join(PROJECT_ROOT, "prompts")
 
 logger.info(
-    f"OpenAI API Key: {'***' + OPENAI_API_KEY[-4:] if OPENAI_API_KEY else 'NOT_SET'}"
+    f"OpenRouter API Key: {'***' + OPENROUTER_API_KEY[-4:] if OPENROUTER_API_KEY else 'NOT_SET'}"
 )
-logger.info(f"Groq API Key: {'***' + GROQ_API_KEY[-4:] if GROQ_API_KEY else 'NOT_SET'}")
 logger.info(
     f"Gemini API Key: {'***' + GEMINI_API_KEY[-4:] if GEMINI_API_KEY else 'NOT_SET'}"
 )
-logger.info(f"Transcription Provider: {TRANSCRIPTION_PROVIDER}")
+logger.info("Transcription Provider: Gemini")
 logger.info(f"Supabase URL: {SUPABASE_URL}")
-logger.info(f"Embedding model: {EMBEDDING_MODEL}")
+logger.info(f"Embedding model: {EMBEDDING_MODEL} ({EMBEDDING_DIMENSIONS} dimensions)")
 logger.info(f"Similarity threshold: {SIMILARITY_THRESHOLD}")
+logger.info(f"Hybrid search enabled: {HYBRID_SEARCH_ENABLED}")
+logger.info(f"Rerank enabled: {RERANK_ENABLED}, model: {RERANK_MODEL}")
 logger.info(
     "Using Supabase for storage: chat_history, noi_cer_documents, noi_energia_documents"
 )

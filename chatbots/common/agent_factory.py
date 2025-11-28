@@ -2,12 +2,12 @@ import logging
 from typing import Callable, List
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 
 from chatbots.common.schemas import ChatbotState
-from config import GROQ_API_KEY
+from config import OPENROUTER_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +19,25 @@ async def create_chatbot_agent(
     system_prompt: str,
     temperature: float = 0.2,
 ):
-    if not GROQ_API_KEY:
-        raise ValueError("GROQ_API_KEY is not configured.")
+    if not OPENROUTER_API_KEY:
+        raise ValueError("OPENROUTER_API_KEY is not configured.")
 
-    model = ChatGroq(model=model_name, temperature=temperature, api_key=GROQ_API_KEY)
+    model = ChatOpenAI(
+        model=model_name,
+        temperature=temperature,
+        api_key=OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1",
+        default_headers={
+            "HTTP-Referer": "https://noienergia.com",
+            "X-Title": "NOI Energia Chatbot",
+        },
+    )
 
     logger.info(f"🤖 {chatbot_name.upper()} CONFIG:")
     logger.info(f"   Model: {model_name}")
     logger.info(f"   Temperature: {temperature}")
     logger.info(
-        f"   API Key: {'***' + GROQ_API_KEY[-4:] if GROQ_API_KEY else 'NOT_SET'}"
+        f"   API Key: {'***' + OPENROUTER_API_KEY[-4:] if OPENROUTER_API_KEY else 'NOT_SET'}"
     )
 
     prompt = ChatPromptTemplate.from_messages(

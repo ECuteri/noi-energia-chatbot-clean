@@ -129,6 +129,13 @@ def _is_authorized(
         return True
 
 
+def _is_valid_phone_number(identifier: str) -> bool:
+    if not identifier:
+        return False
+    cleaned = identifier.lstrip("+").strip()
+    return cleaned.isdigit()
+
+
 async def _process_incoming(
     payload: Dict[str, Any], agent_name: str, inbox_id: str, bot_token: str
 ) -> None:
@@ -211,6 +218,59 @@ async def _process_incoming(
             )
             return
 
+        whitelist_start = time.time()
+        if not _is_valid_phone_number(contact_identifier):
+            whitelist_time = time.time() - whitelist_start
+            logger.warning(
+                f"[cw:{agent_name}:{contact_identifier}] Non-numeric identifier rejected - Time: {whitelist_time:.3f}s"
+            )
+            try:
+                conv_id_int = int(conversation_id)
+                await send_chatwoot_message(
+                    conv_id_int,
+                    contact_identifier,
+                    text="Mi dispiace, non posso rispondere.",
+                    bot_token=bot_token,
+                )
+                logger.info(
+                    f"[cw:{agent_name}:{contact_identifier}] Rejection message sent for non-numeric identifier"
+                )
+            except Exception as e:
+                logger.error(
+                    f"[cw:{agent_name}:{contact_identifier}] Failed to send rejection message: {e}"
+                )
+            return
+
+        is_whitelisted = await supabase_store.check_whitelist_status(
+            contact_identifier, agent_name
+        )
+        whitelist_time = time.time() - whitelist_start
+
+        if not is_whitelisted:
+            logger.warning(
+                f"[cw:{agent_name}:{contact_identifier}] Phone number not whitelisted - Time: {whitelist_time:.3f}s"
+            )
+            try:
+                conv_id_int = int(conversation_id)
+                await send_chatwoot_message(
+                    conv_id_int,
+                    contact_identifier,
+                    text="Mi dispiace, non posso rispondere.",
+                    bot_token=bot_token,
+                )
+                logger.info(
+                    f"[cw:{agent_name}:{contact_identifier}] Rejection message sent for non-whitelisted number"
+                )
+            except Exception as e:
+                logger.error(
+                    f"[cw:{agent_name}:{contact_identifier}] Failed to send rejection message: {e}"
+                )
+            return
+
+        logger.info(
+            f"[cw:{agent_name}:{contact_identifier}] Whitelist check passed - Time: {whitelist_time:.3f}s"
+        )
+
         session_id = f"{agent_name}:{contact_identifier}"
 
         save_start = time.time()
@@ -265,7 +325,32 @@ async def _process_incoming(
         logger.info(
             f"[cw:{agent_name}:{contact_identifier}] Invoking agent with {len(messages)} messages. Session: {session_id}"
         )
+
+        thinking_message_sent = asyncio.Event()
+        thinking_task = None
+
+        async def send_thinking_message():
+            await asyncio.sleep(3)
+            if not thinking_message_sent.is_set():
+                try:
+                    conv_id_int = int(conversation_id)
+                    await send_chatwoot_message(
+                        conv_id_int,
+                        contact_identifier,
+                        text="Sto cercando le informazioni...",
+                        bot_token=bot_token,
+                    )
+                    thinking_message_sent.set()
+                    logger.info(
+                        f"[cw:{agent_name}:{contact_identifier}] Sent thinking message"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"[cw:{agent_name}:{contact_identifier}] Failed to send thinking message: {e}"
+                    )
+
         try:
+            thinking_task = asyncio.create_task(send_thinking_message())
             result = await agent.ainvoke(
                 {"messages": messages, "failed_document_ids": set()},
                 config={
@@ -273,11 +358,32 @@ async def _process_incoming(
                     "recursion_limit": 30,
                 },
             )
+
+            if thinking_task and not thinking_task.done():
+                thinking_task.cancel()
+                try:
+                    await thinking_task
+                except asyncio.CancelledError:
+                    pass
+                logger.debug(
+                    f"[cw:{agent_name}:{contact_identifier}] Canceled thinking message task (agent completed quickly)"
+                )
+
             agent_time = time.time() - agent_start
             logger.info(
                 f"[cw:{agent_name}:{contact_identifier}] Agent invocation completed - Time: {agent_time:.3f}s"
             )
         except Exception as invoke_err:
+            if thinking_task and not thinking_task.done():
+                thinking_task.cancel()
+                try:
+                    await thinking_task
+                except asyncio.CancelledError:
+                    pass
+                logger.debug(
+                    f"[cw:{agent_name}:{contact_identifier}] Canceled thinking message task (agent error)"
+                )
+
             agent_time = time.time() - agent_start
             logger.error(
                 f"[cw:{agent_name}:{contact_identifier}] Agent invoke error - Time: {agent_time:.3f}s - Error: {invoke_err}",
