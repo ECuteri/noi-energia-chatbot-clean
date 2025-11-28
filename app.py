@@ -29,9 +29,12 @@ app.debug = os.getenv("APP_DEBUG", "false").lower() == "true"
 
 async def startup_event():
     logger.info("Application startup sequence initiated...")
+    sys.stdout.flush()
     logger.info("Using Supabase for all storage (chat history and RAG documents)...")
+    sys.stdout.flush()
 
     logger.info("Initializing Supabase schema...")
+    sys.stdout.flush()
     try:
         from database.init_supabase import (
             initialize_supabase_schema,
@@ -41,35 +44,45 @@ async def startup_event():
         await initialize_supabase_schema()
         table_status = await verify_supabase_tables()
         logger.info(f"Supabase tables status: {table_status}")
+        sys.stdout.flush()
     except Exception as e:
         logger.warning(f"Supabase schema initialization warning: {e}")
+        sys.stdout.flush()
         logger.info(
             "If tables don't exist, please run the SQL from database/init_supabase.py"
         )
+        sys.stdout.flush()
 
     logger.info("Initializing Noi CER chatbot...")
+    sys.stdout.flush()
     try:
         from chatbots.noi_cer_chatbot.agent import create_noi_cer_chatbot_agent
 
         noi_cer_chatbot = await create_noi_cer_chatbot_agent()
         app.config["NOI_CER_CHATBOT"] = noi_cer_chatbot
         logger.info("Noi CER chatbot initialized successfully.")
+        sys.stdout.flush()
     except Exception as e:
         logger.critical(f"Failed to initialize Noi CER chatbot: {e}", exc_info=True)
+        sys.stdout.flush()
         sys.exit("Noi CER chatbot initialization failed.")
 
     logger.info("Initializing Noi Energia chatbot...")
+    sys.stdout.flush()
     try:
         from chatbots.noi_energia_chatbot.agent import create_noi_energia_chatbot_agent
 
         noi_energia_chatbot = await create_noi_energia_chatbot_agent()
         app.config["NOI_ENERGIA_CHATBOT"] = noi_energia_chatbot
         logger.info("Noi Energia chatbot initialized successfully.")
+        sys.stdout.flush()
     except Exception as e:
         logger.critical(f"Failed to initialize Noi Energia chatbot: {e}", exc_info=True)
+        sys.stdout.flush()
         sys.exit("Noi Energia chatbot initialization failed.")
 
     logger.info("Application startup completed.")
+    sys.stdout.flush()
 
 
 async def shutdown_event():
@@ -101,6 +114,11 @@ if __name__ == "__main__":
         logger.info(f"Starting Hypercorn server on 0.0.0.0:{PORT}")
         hypercorn_config = HypercornConfig()
         hypercorn_config.bind = [f"0.0.0.0:{PORT}"]
+        hypercorn_config.accesslog = "-"
+        hypercorn_config.errorlog = "-"
+        hypercorn_config.loglevel = "info"
+        sys.stdout.flush()
+        sys.stderr.flush()
         asyncio.run(hypercorn.asyncio.serve(app, hypercorn_config))
     except KeyboardInterrupt:
         logger.info("Server stopped by user (KeyboardInterrupt).")
