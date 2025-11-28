@@ -13,7 +13,11 @@ try:
     from routes.chat_history_routes import chat_history_bp
 except Exception:
     chat_history_bp = None
-from routes.local_test import local_test_bp
+
+try:
+    from routes.local_test import local_test_bp
+except Exception:
+    local_test_bp = None
 
 load_environment()
 setup_logging()
@@ -78,7 +82,9 @@ app.after_serving(shutdown_event)
 
 if chat_history_bp is not None:
     app.register_blueprint(chat_history_bp)
-app.register_blueprint(local_test_bp)
+
+if local_test_bp is not None:
+    app.register_blueprint(local_test_bp)
 
 try:
     from routes.chatwoot_webhook import chatwoot_webhook_bp
