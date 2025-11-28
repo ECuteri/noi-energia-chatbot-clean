@@ -2,8 +2,7 @@ import json
 import logging
 from typing import Callable
 
-from config import HYBRID_SEARCH_CANDIDATES, MAX_SEARCH_RESULTS, RERANK_TOP_N
-from services.reranker import rerank_results
+from config import HYBRID_SEARCH_CANDIDATES, MAX_SEARCH_RESULTS
 from services.supabase_client import supabase_store
 
 logger = logging.getLogger(__name__)
@@ -38,13 +37,12 @@ def _format_result(result):
     return {
         "chunk_id": result.get("id"),
         "content": preview,
-        "similarity_score": result.get("rerank_score") or result.get("similarity", 0.0),
+        "similarity_score": result.get("similarity") or result.get("rrf_score", 0.0),
         "metadata": metadata_copy,
     }
 
 
 def create_vector_search_tool(table_name: str, chatbot_name: str) -> Callable:
-
     async def vector_search(query: str, limit: int = None) -> str:
         try:
             logger.info(
@@ -60,23 +58,19 @@ def create_vector_search_tool(table_name: str, chatbot_name: str) -> Callable:
             search_results = await supabase_store.hybrid_search(
                 query=query.strip(),
                 table_name=table_name,
-                limit=HYBRID_SEARCH_CANDIDATES,
+                limit=final_limit,
             )
 
             if not search_results:
                 logger.info(f"{chatbot_name} hybrid search returned no results")
                 return "No documents found matching your query."
 
-            reranked_results = await rerank_results(
-                query=query.strip(),
-                documents=search_results,
-                top_n=min(RERANK_TOP_N, final_limit),
-            )
-
-            formatted_results = [_format_result(r) for r in reranked_results]
+            formatted_results = [
+                _format_result(r) for r in search_results[:final_limit]
+            ]
 
             logger.info(
-                f"{chatbot_name} search pipeline: {len(search_results)} candidates -> {len(formatted_results)} reranked results"
+                f"{chatbot_name} search pipeline: {len(search_results)} results returned"
             )
             return json.dumps(formatted_results, ensure_ascii=False, indent=2)
 
@@ -88,11 +82,11 @@ def create_vector_search_tool(table_name: str, chatbot_name: str) -> Callable:
 
     vector_search.__name__ = "vector_search"
     vector_search.__doc__ = f"""
-Search {chatbot_name} documents using hybrid semantic and keyword search with reranking.
+Search {chatbot_name} documents using hybrid semantic and keyword search.
 
-This tool uses a multi-stage retrieval pipeline:
-1. Hybrid search combining vector similarity with full-text keyword matching
-2. Reranking with a cross-encoder model for improved relevance
+This tool uses hybrid search combining:
+1. Vector similarity search for semantic matching
+2. Full-text keyword matching for exact term matches
 
 Parameters:
 - query (required): The search query text
@@ -102,7 +96,7 @@ Returns:
 List of document chunks ranked by relevance. Each result contains:
 - chunk_id: UNIQUE IDENTIFIER to use with get_file_contents()
 - content: Preview of the chunk content (truncated to 500 chars)
-- similarity_score: Relevance score from reranking model
+- similarity_score: Relevance score from hybrid search
 - metadata: Additional information (source_file_id is for reference only)
 
 CRITICAL: Always use the 'chunk_id' field from results when calling get_file_contents().

@@ -7,7 +7,7 @@ from config import OPENROUTER_API_KEY, RERANK_ENABLED, RERANK_MODEL, RERANK_TOP_
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_RERANK_URL = "https://openrouter.ai/api/v1/rerank"
+OPENROUTER_RERANK_URL = "https://openrouter.co/v1/rerank"
 
 
 async def rerank_results(
@@ -48,22 +48,31 @@ async def rerank_results(
                 },
             )
 
+            response_text = response.text.strip()
+
             if response.status_code != 200:
                 logger.error(
-                    f"Reranker API error: {response.status_code} - {response.text}"
+                    f"Reranker API error: {response.status_code} - {response_text[:500]}"
                 )
                 return documents[:top_n]
 
-            response_text = response.text.strip()
             if not response_text:
                 logger.error("Reranker API returned empty response")
+                return documents[:top_n]
+
+            if response_text.startswith("<!DOCTYPE") or response_text.startswith(
+                "<html"
+            ):
+                logger.error(
+                    f"Reranker API returned HTML instead of JSON (status {response.status_code}): {response_text[:500]}"
+                )
                 return documents[:top_n]
 
             try:
                 data = response.json()
             except ValueError as json_error:
                 logger.error(
-                    f"Reranker API returned invalid JSON: {response_text[:200]} - {json_error}"
+                    f"Reranker API returned invalid JSON (status {response.status_code}): {response_text[:500]} - {json_error}"
                 )
                 return documents[:top_n]
 
